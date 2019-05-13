@@ -1,0 +1,117 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+Read CHNS SAS files
+```{r}
+library(haven)
+educ_12 <- read_sas("H:/UOE/OneDrive - University of Edinburgh/NewStart/chns_data/educ_12.sas7bdat")
+jobs_12 <- read_sas("H:/UOE/OneDrive - University of Edinburgh/NewStart/chns_data/jobs_12.sas7bdat")
+hlth_12 <- read_sas("H:/UOE/OneDrive - University of Edinburgh/NewStart/chns_data/hlth_12.sas7bdat")
+indinc_10 <- read_sas("H:/UOE/OneDrive - University of Edinburgh/NewStart/chns_data/indinc_10.sas7bdat")
+ins_12 <- read_sas("H:/UOE/OneDrive - University of Edinburgh/NewStart/chns_data/ins_12.sas7bdat")
+surveys_pub_12 <- read_sas("H:/UOE/OneDrive - University of Edinburgh/NewStart/chns_data/surveys_pub_12.sas7bdat")
+mast_pub_12 <- read_sas("H:/UOE/OneDrive - University of Edinburgh/NewStart/chns_data/mast_pub_12.sas7bdat")
+hhinc_10 <- read_sas("H:/UOE/OneDrive - University of Edinburgh/NewStart/chns_data/hhinc_10.sas7bdat")
+urban_11 <- read_sas("H:/UOE/OneDrive - University of Edinburgh/NewStart/chns_data/urban_11.sas7bdat")
+rst_12 <- read_sas("H:/UOE/OneDrive - University of Edinburgh/NewStart/chns_data/rst_12.sas7bdat")
+```
+
+1:1 merge files
+```{r}
+#data clean
+colnames(educ_12)[2] <- "wave"
+colnames(surveys_pub_12)[1] <- "IDind"
+colnames(rst_12)[63] <- "wave"
+colnames(indinc_10)[21] <- "T1"
+colnames(indinc_10)[20] <- "COMMID"
+colnames(surveys_pub_12)[c(1, 6, 7, 8, 9, 10, 11)] <- c("IDind","COMMID","T1","T2","T3","T4","T5")
+
+combo2 <- merge(educ_12, jobs_12, all =T)
+combo2 <- merge(combo2, hlth_12, all=T)
+
+#indinc_10 has a duplication
+dupe2 <- indinc_10[, c('IDind', 'wave')]
+indinc_10[duplicated(dupe2),]
+indinc_10 <- indinc_10[!duplicated(dupe2),]
+combo2 <- merge(combo2, indinc_10, all=T)
+#delete duplications after merge
+dupe = combo2[,c('IDind', 'wave')]
+combo2[duplicated(dupe) | duplicated(dupe, fromLast = T),]
+print(combo2[c(132681, 132682),]$IDind, digits = 15)
+combo2 <- combo2[!(combo2$IDind==522203018002 & combo2$wave==2015 & combo2$hhid==522203101),]
+#
+
+combo2 <- merge(combo2, ins_12, all=T)
+combo <- combo2
+
+#drop line column
+rst_12 <- subset(rst_12, select=-c(line, hhid, T2, T3, T4, T5))
+#find the common columns
+intersect(colnames(combo), colnames(rst_12))
+combo <- merge(combo, rst_12, all=T)
+
+#
+intersect(colnames(combo), colnames(surveys_pub_12))
+combo <- subset(combo, select = -c(line, T2, T3, T4, T5, urban, hhid))
+#check missing value in combo and survey_pub
+nrow(combo[is.na(combo$COMMID),])
+nrow(surveys_pub_12[is.na(surveys_pub_12$COMMID),])
+combo <- merge(combo, surveys_pub_12, all=T)
+
+# head(combo, 6)
+# dim(combo)
+# colnames(combo)
+dupe = combo3[,c('IDind', 'wave')]
+combo3[duplicated(dupe) | duplicated(dupe, fromLast = T),]
+#can print both duplications rather than one of them, compared to the command: combo[duplicated(dupe),]
+rm(dupe)
+
+```
+
+1:m merge
+```{r}
+library(plyr)
+colnames(mast_pub_12)[1] <- "IDind"
+nrow(mast_pub_12[is.na(mast_pub_12$GENDER),])
+intersect(colnames(combo), colnames(mast_pub_12))
+combo3 <- join(combo, mast_pub_12, by='IDind')
+nrow(combo3[is.na(combo3$GENDER),])
+combo3 <- combo3[order(combo3$IDind, combo3$wave),]
+print(combo3[c(1:30), c("IDind","GENDER")], digits = 20)
+
+colnames(hhinc_10)[c(1,25,26)] <- c("wave","COMMID","T1") 
+intersect(colnames(combo), colnames(hhinc_10))
+hhinc_10 <- subset(hhinc_10, select = -c(COMMID, T1, index_new, index_old, urban))
+combo3 <- join(combo3, hhinc_10, by=c('hhid','wave'))
+nrow(combo3[is.na(combo3$hhinc_cpi),])
+
+intersect(colnames(combo), colnames(urban_11))
+urban_11 <- subset(urban_11, select = -c(T1, T2, T3, T4))
+combo3 <- join(combo3, urban_11, by=c('COMMID','wave'))
+
+save(combo3, file="merge.Rda")
+#load("merge.Rda")
+```
+
+recode
+```{r}
+
+
+```
+
